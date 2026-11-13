@@ -1,0 +1,30 @@
+# Local development database for AgriCloud-CI.
+#
+#   cp .env.example .env      # then set a real POSTGRES_PASSWORD
+#   docker compose up -d
+#   docker compose ps         # wait for the (healthy) status
+#
+# The backend is run on the host with uvicorn (see README.md) so that code
+# changes reload instantly; only Postgres lives in Docker.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: agricloud-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-agricloud}
+      POSTGRES_USER: ${POSTGRES_USER:-agricloud}
+      # No default on purpose: the password must come from .env (never from code).
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your .env file}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - agricloud_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  agricloud_pgdata:

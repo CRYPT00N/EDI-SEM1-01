@@ -1,0 +1,94 @@
+/* AgriCloud-CI dashboard styling on top of the Tailwind CDN build.
+   Tailwind covers layout and colour; this file only adds the few things the
+   CDN build cannot express (font stack, ambient glow, shimmer, native selects). */
+
+:root {
+  color-scheme: dark;
+  --acid: #c6f24e;
+  --ink: #070907;
+}
+
+body {
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  background-color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: "Space Grotesk", "Inter", ui-sans-serif, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+::selection {
+  background: rgba(198, 242, 78, 0.28);
+  color: #f7fee7;
+}
+
+/* Soft lime glow behind the content, like the reference dashboard. */
+.page-glow {
+  background-image:
+    radial-gradient(60rem 24rem at 20% -12%, rgba(198, 242, 78, 0.09), transparent 60%),
+    radial-gradient(40rem 20rem at 100% 0%, rgba(198, 242, 78, 0.05), transparent 55%);
+}
+
+/* Native select popups are rendered by the OS; keep them dark. */
+select option {
+  background-color: #0f120f;
+  color: #e4e4e7;
+}
+
+/* Slim dark scrollbars for the table and page. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a332a #0b0d0b;
+}
+
+*::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: #2a332a;
+  border-radius: 999px;
+}
+
+/* Skeleton shimmer used while an API call is in flight. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: rgba(24, 30, 24, 0.9);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    rgba(198, 242, 78, 0.08),
+    transparent
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* The lime ring gauge animates its stroke when a verdict arrives. */
+.ring-progress {
+  transition: stroke-dashoffset 0.7s ease, stroke 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after,
+  .ring-progress {
+    animation: none;
+    transition: none;
+  }
+}

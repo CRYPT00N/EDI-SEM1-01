@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>History · AgriCloud-CI</title>
+    <meta name="description" content="PostgreSQL audit log of telemetry uploads and crop advisories." />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ink: { 950: "#070907", 900: "#0b0d0b", 850: "#0f120f", 800: "#141814" },
+              acid: { DEFAULT: "#c6f24e" },
+            },
+            fontFamily: {
+              sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+              display: ["Space Grotesk", "Inter", "ui-sans-serif", "sans-serif"],
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/app.css" />
+    <script src="assets/app.js" defer></script>
+  </head>
+
+  <body class="min-h-screen bg-ink-950 text-zinc-100" data-page="history">
+    <div class="flex min-h-screen">
+      <aside id="sidebar" class="hidden w-[252px] shrink-0 border-r border-white/5 bg-ink-900/60 lg:block"></aside>
+
+      <div class="flex min-w-0 flex-1 flex-col">
+        <header id="topbar" class="sticky top-0 z-20"></header>
+
+        <main class="page-glow mx-auto w-full max-w-[1400px] flex-1 px-4 pb-28 pt-6 lg:px-8 lg:pb-10">
+          <div id="error-banner" class="mb-4 hidden">
+            <div class="flex items-start justify-between gap-3 rounded-2xl border border-rose-500/25 bg-rose-500/[0.08] px-4 py-3 text-sm text-rose-100">
+              <div class="flex items-start gap-3">
+                <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-rose-500/15 text-rose-300">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="h-4 w-4"><path d="M12 8v5"/><circle cx="12" cy="16.5" r="0.6"/><circle cx="12" cy="12" r="9"/></svg>
+                </span>
+                <div>
+                  <p class="font-semibold">Could not load the audit history</p>
+                  <p id="error-text" class="mt-0.5 text-rose-200/80"></p>
+                </div>
+              </div>
+              <button type="button" onclick="AgriUI.clearError()" class="rounded-md px-2 py-1 text-rose-200/70 transition hover:bg-rose-500/10" aria-label="Dismiss error">✕</button>
+            </div>
+          </div>
+
+          <!-- Stats -->
+          <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <article class="rounded-2xl border border-white/5 bg-ink-850/80 p-4">
+              <p class="text-[10px] uppercase tracking-[0.16em] text-zinc-500">Rows returned</p>
+              <p id="stat-rows" class="font-display mt-1.5 text-2xl font-semibold text-white">—</p>
+              <p class="mt-0.5 text-[11px] text-zinc-500">newest first from PostgreSQL</p>
+            </article>
+            <article class="rounded-2xl border border-white/5 bg-ink-850/80 p-4">
+              <p class="text-[10px] uppercase tracking-[0.16em] text-zinc-500">Advisory verdicts</p>
+              <p id="stat-advisories" class="font-display mt-1.5 text-2xl font-semibold text-white">—</p>
+              <p class="mt-0.5 text-[11px] text-zinc-500">graded against crops.json</p>
+            </article>
+            <article class="rounded-2xl border border-white/5 bg-ink-850/80 p-4">
+              <p class="text-[10px] uppercase tracking-[0.16em] text-zinc-500">Satellite fallbacks</p>
+              <p id="stat-fallbacks" class="font-display mt-1.5 text-2xl font-semibold text-white">—</p>
+              <p class="mt-0.5 text-[11px] text-zinc-500">rows served by Open-Meteo</p>
+            </article>
+            <article class="rounded-2xl border border-white/5 bg-ink-850/80 p-4">
+              <p class="text-[10px] uppercase tracking-[0.16em] text-zinc-500">Crops covered</p>
+              <p id="stat-crops" class="font-display mt-1.5 text-2xl font-semibold text-white">—</p>
+              <p id="stat-crops-note" class="mt-0.5 text-[11px] text-zinc-500">in the current result set</p>
+            </article>
+          </section>
+
+          <!-- Filters -->
+          <section class="mt-4 rounded-3xl border border-white/5 bg-ink-850/80 p-4">
+            <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <label class="text-sm">
+                <span class="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-zinc-500">Crop</span>
+                <select id="crop-filter" class="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-acid/60 focus:ring-2 focus:ring-acid/20">
+                  <option value="">All crops</option>
+                </select>
+              </label>
+              <label class="text-sm">
+                <span class="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-zinc-500">Sort by date</span>
+                <select id="sort-order" class="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-acid/60 focus:ring-2 focus:ring-acid/20">
+                  <option value="desc">Newest first</option>
+                  <option value="asc">Oldest first</option>
+                </select>
+              </label>
+              <label class="text-sm">
+                <span class="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-zinc-500">Rows</span>
+                <select id="limit-select" class="w-full rounded-xl border border-white/10 bg-ink-900 px-3 py-2.5 text-sm text-zinc-100 outline-none transition focus:border-acid/60 focus:ring-2 focus:ring-acid/20">
+                  <option value="25">25</option>
+                  <option value="50" selected>50</option>
+                  <option value="100">100</option>
+                  <option value="200">200</option>
+                </select>
+              </label>
+              <div class="flex items-end">
+                <button id="reload-button" type="button" class="flex w-full items-center justify-center gap-2 rounded-xl bg-acid px-4 py-2.5 text-sm font-semibold text-ink-950 transition hover:brightness-105 disabled:opacity-60">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>
+                  Reload
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Table -->
+          <section class="mt-4 overflow-hidden rounded-3xl border border-white/5 bg-ink-850/60">
+            <div class="flex items-center justify-between gap-2 border-b border-white/5 px-5 py-4">
+              <p class="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Audit trail</p>
+              <p id="result-count" class="text-[11px] text-zinc-500">Loading…</p>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-white/5 text-left text-sm">
+                <thead class="bg-white/[0.02] text-[10px] uppercase tracking-[0.12em] text-zinc-500">
+                  <tr>
+                    <th scope="col" class="whitespace-nowrap px-5 py-3 font-medium">When</th>
+                    <th scope="col" class="whitespace-nowrap px-5 py-3 font-medium">Source</th>
+                    <th scope="col" class="whitespace-nowrap px-5 py-3 font-medium">Temp</th>
+                    <th scope="col" class="whitespace-nowrap px-5 py-3 font-medium">Humidity</th>
+                    <th scope="col" class="whitespace-nowrap px-5 py-3 font-medium">Soil</th>
+                    <th scope="col" class="whitespace-nowrap px-5 py-3 font-medium">Crop</th>
+                    <th scope="col" class="whitespace-nowrap px-5 py-3 font-medium">Viability</th>
+                    <th scope="col" class="px-5 py-3 font-medium">Recommendation</th>
+                  </tr>
+                </thead>
+                <tbody id="history-body" class="divide-y divide-white/5">
+                  <tr>
+                    <td colspan="8" class="px-5 py-8">
+                      <div class="skeleton h-24 rounded-xl"></div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <p class="mt-3 text-[11px] text-zinc-600">
+            The API always returns rows newest first; the sort control re-orders the fetched page in the browser.
+          </p>
+        </main>
+      </div>
+    </div>
+
+    <nav id="mobile-nav" class="lg:hidden"></nav>
+
+    <script>
+      (function () {
+        "use strict";
+
+        let rows = [];
+
+        function badge(value) {
+          if (!value) return '<span class="text-zinc-600">—</span>';
+          return (
+            '<span class="whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-semibold ' +
+            AgriUI.viabilityBadge(value) +
+            '">' +
+            AgriUI.escapeHtml(value) +
+            "</span>"
+          );
+        }
+
+        function sourceCell(row) {
+          if (!row.source) return '<span class="text-zinc-600">—</span>';
+          const fallback = row.source === "satellite_fallback";
+          const label = fallback ? "Satellite" : "ESP32";
+          const tone = fallback ? "text-violet-300" : "text-acid";
+          const note = row.fusion_note
+            ? ' <span title="' + AgriUI.escapeHtml(row.fusion_note) + '" class="cursor-help text-zinc-500">ⓘ</span>'
+            : "";
+          return '<span class="' + tone + '">' + label + "</span>" + note;
+        }
+
+        function render() {
+          const body = AgriUI.byId("history-body");
+          const order = AgriUI.byId("sort-order").value;
+
+          if (!rows.length) {
+            body.innerHTML =
+              '<tr><td colspan="8" class="px-5 py-12 text-center text-sm text-zinc-500">' +
+              "No log rows match this filter yet. Upload a reading or run an advisory." +
+              "</td></tr>";
+            AgriUI.setText("result-count", "0 rows");
+            return;
+          }
+
+          const sorted = rows.slice().sort(function (a, b) {
+            const left = new Date(a.created_at).getTime();
+            const right = new Date(b.created_at).getTime();
+            return order === "asc" ? left - right : right - left;
+          });
+
+          body.innerHTML = sorted
+            .map(function (row) {
+              const crop = row.crop
+                ? AgriUI.escapeHtml(row.crop)
+                : '<span class="text-zinc-600">—</span>';
+              const recommendation = row.recommendation
+                ? '<span title="' + AgriUI.escapeHtml(row.recommendation) + '">' + AgriUI.escapeHtml(row.recommendation) + "</span>"
+                : '<span class="text-zinc-600">—</span>';
+
+              return (
+                '<tr class="transition hover:bg-white/[0.02]">' +
+                '<td class="whitespace-nowrap px-5 py-3 text-xs text-zinc-400">' + AgriUI.formatTime(row.created_at) + "</td>" +
+                '<td class="whitespace-nowrap px-5 py-3 text-xs">' + sourceCell(row) + "</td>" +
+                '<td class="whitespace-nowrap px-5 py-3 text-xs text-zinc-300">' + AgriUI.formatNumber(row.temperature_c, 1) + ' <span class="text-zinc-600">°C</span></td>' +
+                '<td class="whitespace-nowrap px-5 py-3 text-xs text-zinc-300">' + AgriUI.formatNumber(row.humidity_pct, 1) + ' <span class="text-zinc-600">%</span></td>' +
+                '<td class="whitespace-nowrap px-5 py-3 text-xs text-zinc-300">' + AgriUI.formatNumber(row.soil_moisture_pct, 1) + ' <span class="text-zinc-600">%</span></td>' +
+                '<td class="whitespace-nowrap px-5 py-3 text-xs text-zinc-300">' + crop + "</td>" +
+                '<td class="whitespace-nowrap px-5 py-3">' + badge(row.viability) + "</td>" +
+                '<td class="max-w-[22rem] px-5 py-3 text-xs text-zinc-400"><span class="line-clamp-2">' + recommendation + "</span></td>" +
+                "</tr>"
+              );
+            })
+            .join("");
+
+          AgriUI.setText(
+            "result-count",
+            sorted.length + (sorted.length === 1 ? " row" : " rows") + " · agri_telemetry_logs"
+          );
+        }
+
+        function updateStats() {
+          const advisories = rows.filter(function (row) {
+            return row.crop;
+          });
+          const fallbacks = rows.filter(function (row) {
+            return row.source === "satellite_fallback";
+          });
+          const crops = {};
+          advisories.forEach(function (row) {
+            crops[row.crop] = true;
+          });
+          const cropNames = Object.keys(crops);
+
+          AgriUI.setText("stat-rows", String(rows.length));
+          AgriUI.setText("stat-advisories", String(advisories.length));
+          AgriUI.setText("stat-fallbacks", String(fallbacks.length));
+          AgriUI.setText("stat-crops", String(cropNames.length));
+          AgriUI.setText(
+            "stat-crops-note",
+            cropNames.length ? cropNames.slice(0, 3).join(", ") : "no advisory rows yet"
+          );
+        }
+
+        async function loadCropOptions() {
+          try {
+            const data = await AgriUI.apiGet("/crops");
+            const select = AgriUI.byId("crop-filter");
+            const current = select.value;
+            select.innerHTML =
+              '<option value="">All crops</option>' +
+              (data.crops || [])
+                .map(function (crop) {
+                  return '<option value="' + AgriUI.escapeHtml(crop.name) + '">' + AgriUI.escapeHtml(crop.name) + "</option>";
+                })
+                .join("");
+            select.value = current;
+          } catch (error) {
+            // The table still works without the extra filter options.
+          }
+        }
+
+        async function load() {
+          const crop = AgriUI.byId("crop-filter").value;
+          const limit = AgriUI.byId("limit-select").value;
+          const button = AgriUI.byId("reload-button");
+          button.disabled = true;
+
+          let path = "/history?limit=" + encodeURIComponent(limit);
+          if (crop) path += "&crop=" + encodeURIComponent(crop);
+
+          try {
+            const data = await AgriUI.apiGet(path);
+            rows = data.logs || [];
+            render();
+            updateStats();
+            AgriUI.clearError();
+          } catch (error) {
+            AgriUI.showError(error.message);
+            AgriUI.setText("result-count", "Could not load rows");
+          } finally {
+            button.disabled = false;
+          }
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+          AgriUI.mountShell({
+            title: "History",
+            subtitle: "Every sensor upload and advisory verdict in PostgreSQL",
+          });
+          window.addEventListener("agri:refresh", load);
+          AgriUI.byId("crop-filter").addEventListener("change", load);
+          AgriUI.byId("limit-select").addEventListener("change", load);
+          AgriUI.byId("sort-order").addEventListener("change", render);
+          AgriUI.byId("reload-button").addEventListener("click", load);
+          loadCropOptions();
+          load();
+        });
+      })();
+    </script>
+  </body>
+</html>

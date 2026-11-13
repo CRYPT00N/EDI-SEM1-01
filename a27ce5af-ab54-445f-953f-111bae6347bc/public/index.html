@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Live telemetry · AgriCloud-CI</title>
+    <meta
+      name="description"
+      content="Live soil moisture, temperature and humidity from the AgriCloud-CI edge node."
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ink: { 950: "#070907", 900: "#0b0d0b", 850: "#0f120f", 800: "#141814" },
+              acid: { DEFAULT: "#c6f24e" },
+            },
+            fontFamily: {
+              sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+              display: ["Space Grotesk", "Inter", "ui-sans-serif", "sans-serif"],
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/app.css" />
+    <script src="assets/app.js" defer></script>
+  </head>
+
+  <body class="min-h-screen bg-ink-950 text-zinc-100" data-page="index">
+    <div class="flex min-h-screen">
+      <!-- Sidebar (injected by app.js so all pages share one shell) -->
+      <aside id="sidebar" class="hidden w-[252px] shrink-0 border-r border-white/5 bg-ink-900/60 lg:block"></aside>
+
+      <div class="flex min-w-0 flex-1 flex-col">
+        <header id="topbar" class="sticky top-0 z-20"></header>
+
+        <main class="page-glow mx-auto w-full max-w-[1400px] flex-1 px-4 pb-28 pt-6 lg:px-8 lg:pb-10">
+          <!-- Error banner -->
+          <div id="error-banner" class="mb-4 hidden">
+            <div class="flex items-start justify-between gap-3 rounded-2xl border border-rose-500/25 bg-rose-500/[0.08] px-4 py-3 text-sm text-rose-100">
+              <div class="flex items-start gap-3">
+                <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-rose-500/15 text-rose-300">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="h-4 w-4"><path d="M12 8v5"/><circle cx="12" cy="16.5" r="0.6"/><circle cx="12" cy="12" r="9"/></svg>
+                </span>
+                <div>
+                  <p class="font-semibold">Could not load live telemetry</p>
+                  <p id="error-text" class="mt-0.5 text-rose-200/80"></p>
+                </div>
+              </div>
+              <button type="button" onclick="AgriUI.clearError()" class="rounded-md px-2 py-1 text-rose-200/70 transition hover:bg-rose-500/10" aria-label="Dismiss error">✕</button>
+            </div>
+          </div>
+
+          <!-- Skeleton -->
+          <div id="live-skeleton">
+            <div class="grid gap-4 lg:grid-cols-3">
+              <div class="skeleton h-[300px] rounded-3xl lg:col-span-2"></div>
+              <div class="skeleton h-[300px] rounded-3xl"></div>
+              <div class="skeleton h-[210px] rounded-3xl lg:col-span-2"></div>
+              <div class="skeleton h-[210px] rounded-3xl"></div>
+            </div>
+          </div>
+
+          <!-- Content -->
+          <section id="live-content" class="hidden">
+            <div class="grid gap-4 lg:grid-cols-3">
+              <!-- Hero -->
+              <article class="relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-br from-ink-850 via-ink-900 to-ink-950 p-6 lg:col-span-2">
+                <div class="pointer-events-none absolute -right-24 -top-28 h-72 w-72 rounded-full bg-acid/10 blur-3xl"></div>
+                <div class="relative flex flex-wrap items-center justify-between gap-3">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="flex items-center gap-1.5 rounded-full bg-acid px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-ink-950">
+                      <span class="h-1.5 w-1.5 rounded-full bg-ink-950"></span> Live field
+                    </span>
+                    <span id="source-badge" class="rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em]">—</span>
+                    <span id="simulate-pill" class="hidden rounded-full bg-amber-400/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] text-amber-300 ring-1 ring-inset ring-amber-400/30">Demo mode</span>
+                  </div>
+                  <p class="text-[11px] text-zinc-500">fused <span id="fused-at" class="text-zinc-300">—</span></p>
+                </div>
+
+                <div class="relative mt-7 flex flex-wrap items-end justify-between gap-6">
+                  <div>
+                    <p class="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Air temperature</p>
+                    <p class="font-display mt-1 text-6xl font-semibold leading-none tracking-tight text-white sm:text-7xl">
+                      <span id="temp-value">—</span><span class="ml-1 text-2xl font-medium text-zinc-500">°C</span>
+                    </p>
+                  </div>
+                  <div class="grid grid-cols-2 gap-2.5">
+                    <div class="rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3">
+                      <p class="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-zinc-500">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="h-3.5 w-3.5 text-acid/80"><path d="M12 3c3.5 4.2 6 7.1 6 10a6 6 0 1 1-12 0c0-2.9 2.5-5.8 6-10Z"/></svg>
+                        Soil
+                      </p>
+                      <p class="mt-1 font-display text-xl text-white"><span id="soil-value">—</span><span class="text-xs text-zinc-500"> %</span></p>
+                    </div>
+                    <div class="rounded-2xl border border-white/5 bg-white/[0.03] px-4 py-3">
+                      <p class="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.14em] text-zinc-500">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="h-3.5 w-3.5 text-acid/80"><path d="M4 14a4 4 0 0 0 4 4h8a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.5A3.5 3.5 0 0 0 4 14Z"/></svg>
+                        Humidity
+                      </p>
+                      <p class="mt-1 font-display text-xl text-white"><span id="humidity-value">—</span><span class="text-xs text-zinc-500"> %</span></p>
+                    </div>
+                  </div>
+                </div>
+
+                <p id="fusion-note" class="relative mt-6 line-clamp-2 border-t border-white/5 pt-4 text-xs leading-relaxed text-zinc-500"></p>
+              </article>
+
+              <!-- Soil ring -->
+              <article class="flex flex-col rounded-3xl border border-white/5 bg-ink-850/80 p-6">
+                <div class="flex items-center justify-between">
+                  <p class="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Soil moisture</p>
+                  <span class="grid h-8 w-8 place-items-center rounded-xl bg-acid/10 text-acid">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="h-4 w-4"><path d="M12 3c3.5 4.2 6 7.1 6 10a6 6 0 1 1-12 0c0-2.9 2.5-5.8 6-10Z"/></svg>
+                  </span>
+                </div>
+
+                <div class="relative mx-auto mt-4 grid h-44 w-44 place-items-center">
+                  <svg viewBox="0 0 128 128" class="h-44 w-44 -rotate-90">
+                    <circle cx="64" cy="64" r="54" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="10" />
+                    <circle id="soil-ring" class="ring-progress" cx="64" cy="64" r="54" fill="none" stroke="#c6f24e" stroke-width="10" stroke-linecap="round" stroke-dasharray="339.29" stroke-dashoffset="339.29" />
+                  </svg>
+                  <div class="absolute text-center">
+                    <p class="font-display text-3xl font-semibold text-white"><span id="soil-ring-value">—</span><span class="text-base text-zinc-500">%</span></p>
+                    <p id="soil-ring-label" class="mt-0.5 text-[10px] uppercase tracking-[0.14em] text-zinc-500">—</p>
+                  </div>
+                </div>
+
+                <p class="mt-auto pt-4 text-[11px] leading-relaxed text-zinc-500">
+                  Capacitive probe · averaged over five samples. The cloud falls back to the
+                  Open-Meteo grid when the probe is offline or spikes.
+                </p>
+              </article>
+
+              <!-- Temperature trend -->
+              <article class="rounded-3xl border border-white/5 bg-ink-850/80 p-6 lg:col-span-2">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p class="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Temperature trend</p>
+                    <p id="temp-range" class="mt-1 font-display text-lg text-white">Waiting for uploads</p>
+                  </div>
+                  <span class="rounded-full border border-white/5 bg-white/[0.03] px-2.5 py-1 text-[10px] uppercase tracking-[0.12em] text-zinc-500">ESP32 uploads</span>
+                </div>
+                <div id="temp-chart" class="mt-4 h-36"></div>
+                <p id="temp-empty" class="mt-4 rounded-xl border border-dashed border-white/10 px-3 py-6 text-center text-[11px] text-zinc-500">
+                  The trend appears after two ESP32 uploads. Post a reading or let the node run.
+                </p>
+              </article>
+
+              <!-- Humidity bars -->
+              <article class="rounded-3xl border border-white/5 bg-ink-850/80 p-6">
+                <p class="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Humidity samples</p>
+                <p id="humidity-range" class="mt-1 font-display text-lg text-white">Waiting for uploads</p>
+                <div id="humidity-chart" class="mt-6 flex h-28 items-end gap-1.5"></div>
+                <p id="humidity-empty" class="mt-4 rounded-xl border border-dashed border-white/10 px-3 py-6 text-center text-[11px] text-zinc-500">
+                  No humidity samples yet.
+                </p>
+              </article>
+
+              <!-- Weather cross-check -->
+              <article class="rounded-3xl border border-white/5 bg-ink-850/80 p-6">
+                <div class="flex items-center justify-between">
+                  <p class="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Open-Meteo cross-check</p>
+                  <span id="weather-badge" class="rounded-full bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-[0.1em] text-zinc-400">—</span>
+                </div>
+                <dl class="mt-4 space-y-2.5 text-sm">
+                  <div class="flex items-center justify-between gap-3">
+                    <dt class="text-zinc-500">Grid temperature</dt>
+                    <dd class="font-medium text-zinc-100"><span id="weather-temp">—</span> °C</dd>
+                  </div>
+                  <div class="flex items-center justify-between gap-3">
+                    <dt class="text-zinc-500">Grid humidity</dt>
+                    <dd class="font-medium text-zinc-100"><span id="weather-humidity">—</span> %</dd>
+                  </div>
+                  <div class="flex items-center justify-between gap-3">
+                    <dt class="text-zinc-500">Precipitation</dt>
+                    <dd class="font-medium text-zinc-100"><span id="weather-rain">—</span> mm</dd>
+                  </div>
+                  <div class="flex items-center justify-between gap-3">
+                    <dt class="text-zinc-500">Grid soil moisture</dt>
+                    <dd class="font-medium text-zinc-100"><span id="weather-soil">—</span> %</dd>
+                  </div>
+                </dl>
+                <p id="weather-note" class="mt-4 border-t border-white/5 pt-3 text-[11px] leading-relaxed text-zinc-500"></p>
+              </article>
+
+              <!-- Fusion trace -->
+              <article class="rounded-3xl border border-white/5 bg-ink-850/80 p-6 lg:col-span-2">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <p class="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Fusion trace</p>
+                  <span class="text-[10px] uppercase tracking-[0.12em] text-zinc-600">agri_telemetry_logs</span>
+                </div>
+                <p id="fusion-detail" class="mt-3 whitespace-pre-line text-sm leading-relaxed text-zinc-300"></p>
+                <div class="mt-4 grid gap-2 sm:grid-cols-3">
+                  <div class="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2.5">
+                    <p class="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Source</p>
+                    <p id="trace-source" class="mt-0.5 text-xs text-zinc-200">—</p>
+                  </div>
+                  <div class="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2.5">
+                    <p class="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Freshness rule</p>
+                    <p class="mt-0.5 text-xs text-zinc-200">15 min</p>
+                  </div>
+                  <div class="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2.5">
+                    <p class="text-[10px] uppercase tracking-[0.14em] text-zinc-500">Spike rule</p>
+                    <p class="mt-0.5 text-xs text-zinc-200">40 pp</p>
+                  </div>
+                </div>
+              </article>
+            </div>
+
+            <p class="mt-6 text-[11px] text-zinc-600">
+              AgriCloud-CI · edge-to-cloud precision microclimate advisory · readings refresh every 30 seconds.
+            </p>
+          </section>
+        </main>
+      </div>
+    </div>
+
+    <nav id="mobile-nav" class="lg:hidden"></nav>
+
+    <script>
+      (function () {
+        "use strict";
+
+        const REFRESH_MS = 30000;
+        let busy = false;
+
+        function setLoading(loading) {
+          AgriUI.setHidden(AgriUI.byId("live-skeleton"), !loading);
+          AgriUI.setHidden(AgriUI.byId("live-content"), loading);
+        }
+
+        function soilTone(value) {
+          if (value < 25) return { colour: "#fb7185", label: "Critically dry" };
+          if (value < 35) return { colour: "#fbbf24", label: "Getting dry" };
+          if (value > 80) return { colour: "#fbbf24", label: "Saturated" };
+          return { colour: "#c6f24e", label: "Healthy band" };
+        }
+
+        function renderLive(data) {
+          AgriUI.setText("temp-value", AgriUI.formatNumber(data.temperature_c, 1));
+          AgriUI.setText("humidity-value", AgriUI.formatNumber(data.humidity_pct, 1));
+          AgriUI.setText("soil-value", AgriUI.formatNumber(data.soil_moisture_pct, 1));
+          AgriUI.setText("soil-ring-value", AgriUI.formatNumber(data.soil_moisture_pct, 1));
+          AgriUI.setText("fused-at", AgriUI.formatTime(data.timestamp));
+
+          const badge = AgriUI.sourceBadge(data.source);
+          const sourceElement = AgriUI.byId("source-badge");
+          sourceElement.textContent = badge.label;
+          sourceElement.className =
+            "rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] " + badge.classes;
+          AgriUI.setText("trace-source", data.source === "esp32" ? "ESP32 edge node" : "Open-Meteo fallback");
+          AgriUI.setText("fusion-note", data.fusion_note || "");
+          AgriUI.setText("fusion-detail", data.fusion_note || "No fusion note recorded.");
+          AgriUI.setHidden(AgriUI.byId("simulate-pill"), !data.simulate);
+
+          const soil = Number(data.soil_moisture_pct);
+          const tone = soilTone(Number.isFinite(soil) ? soil : 0);
+          const ring = AgriUI.byId("soil-ring");
+          const circumference = 2 * Math.PI * 54;
+          const fraction = Math.max(0, Math.min(100, Number.isFinite(soil) ? soil : 0)) / 100;
+          ring.setAttribute("stroke", tone.colour);
+          ring.setAttribute("stroke-dasharray", circumference.toFixed(2));
+          ring.setAttribute("stroke-dashoffset", (circumference * (1 - fraction)).toFixed(2));
+          AgriUI.setText("soil-ring-label", tone.label);
+
+          const weather = data.weather;
+          if (weather) {
+            AgriUI.setText("weather-temp", AgriUI.formatNumber(weather.temperature_c, 1));
+            AgriUI.setText("weather-humidity", AgriUI.formatNumber(weather.humidity_pct, 1));
+            AgriUI.setText("weather-rain", AgriUI.formatNumber(weather.precipitation_mm, 1));
+            AgriUI.setText("weather-soil", AgriUI.formatNumber(weather.soil_moisture_pct, 1));
+            AgriUI.setText("weather-badge", weather.cached ? "cached" : "fresh");
+            const notes = ["Observed " + AgriUI.formatTime(weather.observed_at)];
+            if (weather.soil_moisture_estimated) notes.push("soil moisture is a regional default");
+            notes.push(weather.cached ? "served from the 10 minute cache" : "just fetched");
+            AgriUI.setText("weather-note", notes.join(" · "));
+          } else {
+            ["weather-temp", "weather-humidity", "weather-rain", "weather-soil"].forEach(function (id) {
+              AgriUI.setText(id, "—");
+            });
+            AgriUI.setText("weather-badge", "offline");
+            AgriUI.setText(
+              "weather-note",
+              "Open-Meteo is unreachable. A fresh ESP32 reading is still valid; fallback is unavailable."
+            );
+          }
+        }
+
+        function renderTrends(logs) {
+          const readings = logs
+            .filter(function (row) {
+              return !row.crop && row.temperature_c !== null && row.humidity_pct !== null;
+            })
+            .slice()
+            .reverse();
+
+          const temperatures = readings.map(function (row) {
+            return Number(row.temperature_c);
+          });
+          const humidities = readings.map(function (row) {
+            return Number(row.humidity_pct);
+          });
+
+          const tempChart = AgriUI.byId("temp-chart");
+          const tempEmpty = AgriUI.byId("temp-empty");
+          if (temperatures.length >= 2) {
+            tempChart.innerHTML = AgriUI.sparkline(temperatures, { colour: "#c6f24e" });
+            AgriUI.setHidden(tempEmpty, true);
+            AgriUI.setText(
+              "temp-range",
+              AgriUI.formatNumber(Math.min.apply(null, temperatures), 1) +
+                " – " +
+                AgriUI.formatNumber(Math.max.apply(null, temperatures), 1) +
+                " °C · last " +
+                temperatures.length +
+                " uploads"
+            );
+          } else {
+            tempChart.innerHTML = "";
+            AgriUI.setHidden(tempEmpty, false);
+            AgriUI.setText("temp-range", "Waiting for uploads");
+          }
+
+          const humidityChart = AgriUI.byId("humidity-chart");
+          const humidityEmpty = AgriUI.byId("humidity-empty");
+          if (humidities.length >= 2) {
+            humidityChart.innerHTML = AgriUI.barChart(humidities, { threshold: 35 });
+            AgriUI.setHidden(humidityEmpty, true);
+            AgriUI.setText(
+              "humidity-range",
+              AgriUI.formatNumber(Math.min.apply(null, humidities), 0) +
+                " – " +
+                AgriUI.formatNumber(Math.max.apply(null, humidities), 0) +
+                " %"
+            );
+          } else {
+            humidityChart.innerHTML = "";
+            AgriUI.setHidden(humidityEmpty, false);
+            AgriUI.setText("humidity-range", "Waiting for uploads");
+          }
+        }
+
+        async function loadTrends() {
+          try {
+            const data = await AgriUI.apiGet("/history?limit=40");
+            renderTrends(data.logs || []);
+          } catch (error) {
+            // The live cards are the primary content; chart failures stay quiet.
+            AgriUI.setText("temp-range", "Trend unavailable");
+          }
+        }
+
+        async function refresh() {
+          if (busy) return;
+          busy = true;
+          const button = AgriUI.byId("shell-refresh");
+          if (button) button.disabled = true;
+          try {
+            const data = await AgriUI.apiGet("/live");
+            renderLive(data);
+            await loadTrends();
+            AgriUI.clearError();
+          } catch (error) {
+            AgriUI.showError(error.message);
+          } finally {
+            setLoading(false);
+            if (button) button.disabled = false;
+            busy = false;
+          }
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+          AgriUI.mountShell({
+            title: "Live telemetry",
+            subtitle: "Edge node and Open-Meteo fused into one field reading",
+          });
+          window.addEventListener("agri:refresh", refresh);
+          refresh();
+          window.setInterval(refresh, REFRESH_MS);
+        });
+      })();
+    </script>
+  </body>
+</html>

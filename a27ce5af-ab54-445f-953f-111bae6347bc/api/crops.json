@@ -1,0 +1,104 @@
+{
+  "_comment": [
+    "Crop viability rules for AgriCloud-CI. Edit this file to tune the advisory.",
+    "Each value has an 'optimal' band and a wider 'marginal' band; the marginal",
+    "band must contain the optimal band. Temperature is in °C, humidity and soil",
+    "moisture are percentages.",
+    "Advice strings accept {crop} and {value} placeholders. A crop without its own",
+    "'advice' block inherits the shared defaults below, which keeps the file short",
+    "while still allowing a crop-specific sentence when needed.",
+    "The numbers below are typical agronomic values for Indian conditions and",
+    "must be checked against a local agronomy reference before the review."
+  ],
+  "defaults": {
+    "advice": {
+      "temperature_low": "Temperature is low for {crop} (measured {value} °C); growth slows below the optimal band.",
+      "temperature_high": "Temperature is high for {crop} (measured {value} °C); heat stress is likely above the optimal band, so irrigate early in the morning and mulch.",
+      "humidity_low": "Humidity is low for {crop} (measured {value} %); dry air raises transpiration, so check soil moisture daily.",
+      "humidity_high": "Humidity is high for {crop} (measured {value} %); damp foliage raises disease risk, so improve airflow and scout the field.",
+      "soil_moisture_low": "Soil moisture is low for {crop} (measured {value} %); irrigate within 24 hours.",
+      "soil_moisture_high": "Soil moisture is high for {crop} (measured {value} %); pause irrigation and check field drainage."
+    }
+  },
+  "crops": {
+    "Wheat": {
+      "temperature": {"optimal": [15, 25], "marginal": [10, 32]},
+      "humidity": {"optimal": [40, 70], "marginal": [30, 80]},
+      "soil_moisture": {"optimal": [35, 60], "marginal": [25, 70]},
+      "advice": {
+        "temperature_low": "Temperature is low for Wheat (measured {value} °C); germination and tillering slow down below 12 °C.",
+        "temperature_high": "Temperature is high for Wheat (measured {value} °C); heat above 30 °C shortens grain filling, so irrigate early in the morning and mulch.",
+        "humidity_low": "Humidity is low for Wheat (measured {value} %); dry air raises transpiration, so check soil moisture daily.",
+        "humidity_high": "Humidity is high for Wheat (measured {value} %); prolonged damp air favours rust and powdery mildew, so inspect the leaves.",
+        "soil_moisture_low": "Soil moisture is low for Wheat (measured {value} %); irrigate within 24 hours.",
+        "soil_moisture_high": "Soil moisture is high for Wheat (measured {value} %); skip the next irrigation and check field drainage."
+      }
+    },
+    "Rice": {
+      "temperature": {"optimal": [22, 32], "marginal": [18, 38]},
+      "humidity": {"optimal": [70, 90], "marginal": [60, 95]},
+      "soil_moisture": {"optimal": [60, 85], "marginal": [50, 95]}
+    },
+    "Maize": {
+      "temperature": {"optimal": [20, 30], "marginal": [15, 35]},
+      "humidity": {"optimal": [50, 75], "marginal": [40, 85]},
+      "soil_moisture": {"optimal": [40, 65], "marginal": [30, 75]}
+    },
+    "Cotton": {
+      "temperature": {"optimal": [25, 35], "marginal": [18, 40]},
+      "humidity": {"optimal": [40, 65], "marginal": [30, 75]},
+      "soil_moisture": {"optimal": [40, 65], "marginal": [30, 75]},
+      "advice": {
+        "temperature_low": "Temperature is low for Cotton (measured {value} °C); boll development stalls below 18 °C.",
+        "temperature_high": "Temperature is high for Cotton (measured {value} °C); above 38 °C squares and bolls drop, so irrigate to cool the canopy.",
+        "humidity_low": "Humidity is low for Cotton (measured {value} %); dry air increases the risk of boll shedding.",
+        "humidity_high": "Humidity is high for Cotton (measured {value} %); a humid canopy raises boll rot risk, so improve airflow between rows.",
+        "soil_moisture_low": "Soil moisture is low for Cotton (measured {value} %); irrigate within 24 hours to protect flowering.",
+        "soil_moisture_high": "Soil moisture is high for Cotton (measured {value} %); waterlogged roots stall growth, so stop irrigation and improve drainage."
+      }
+    },
+    "Sugarcane": {
+      "temperature": {"optimal": [25, 35], "marginal": [20, 40]},
+      "humidity": {"optimal": [60, 80], "marginal": [50, 90]},
+      "soil_moisture": {"optimal": [50, 75], "marginal": [40, 85]}
+    },
+    "Groundnut": {
+      "temperature": {"optimal": [25, 32], "marginal": [20, 38]},
+      "humidity": {"optimal": [50, 70], "marginal": [40, 80]},
+      "soil_moisture": {"optimal": [40, 60], "marginal": [30, 70]}
+    },
+    "Mustard": {
+      "temperature": {"optimal": [15, 25], "marginal": [10, 30]},
+      "humidity": {"optimal": [40, 65], "marginal": [30, 75]},
+      "soil_moisture": {"optimal": [35, 55], "marginal": [25, 65]}
+    },
+    "Chickpea": {
+      "temperature": {"optimal": [18, 28], "marginal": [12, 32]},
+      "humidity": {"optimal": [40, 60], "marginal": [30, 70]},
+      "soil_moisture": {"optimal": [35, 55], "marginal": [25, 65]}
+    },
+    "Pearl Millet": {
+      "temperature": {"optimal": [25, 35], "marginal": [20, 40]},
+      "humidity": {"optimal": [40, 65], "marginal": [30, 75]},
+      "soil_moisture": {"optimal": [30, 55], "marginal": [20, 65]}
+    },
+    "Soybeans": {
+      "temperature": {"optimal": [20, 30], "marginal": [15, 35]},
+      "humidity": {"optimal": [55, 80], "marginal": [45, 90]},
+      "soil_moisture": {"optimal": [45, 70], "marginal": [35, 80]},
+      "advice": {
+        "temperature_low": "Temperature is low for Soybeans (measured {value} °C); nodulation and growth slow below 15 °C.",
+        "temperature_high": "Temperature is high for Soybeans (measured {value} °C); pod set fails above 35 °C, so irrigate in the evening.",
+        "humidity_low": "Humidity is low for Soybeans (measured {value} %); dry air during flowering can abort pods.",
+        "humidity_high": "Humidity is high for Soybeans (measured {value} %); damp foliage favours frog-eye leaf spot, so scout the field.",
+        "soil_moisture_low": "Soil moisture is low for Soybeans (measured {value} %); irrigate within 24 hours because flowering is moisture critical.",
+        "soil_moisture_high": "Soil moisture is high for Soybeans (measured {value} %); saturated soil causes root rot, so pause irrigation."
+      }
+    },
+    "Tomato": {
+      "temperature": {"optimal": [20, 28], "marginal": [15, 32]},
+      "humidity": {"optimal": [60, 80], "marginal": [50, 90]},
+      "soil_moisture": {"optimal": [50, 70], "marginal": [40, 80]}
+    }
+  }
+}

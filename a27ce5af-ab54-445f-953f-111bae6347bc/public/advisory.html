@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Crop advisory · AgriCloud-CI</title>
+    <meta
+      name="description"
+      content="Evaluate current microclimate conditions for eleven crops with the AgriCloud-CI decision matrix."
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              ink: { 950: "#070907", 900: "#0b0d0b", 850: "#0f120f", 800: "#141814" },
+              acid: { DEFAULT: "#c6f24e" },
+            },
+            fontFamily: {
+              sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+              display: ["Space Grotesk", "Inter", "ui-sans-serif", "sans-serif"],
+            },
+          },
+        },
+      };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/app.css" />
+    <script src="assets/app.js" defer></script>
+  </head>
+
+  <body class="min-h-screen bg-ink-950 text-zinc-100" data-page="advisory">
+    <div class="flex min-h-screen">
+      <aside id="sidebar" class="hidden w-[252px] shrink-0 border-r border-white/5 bg-ink-900/60 lg:block"></aside>
+
+      <div class="flex min-w-0 flex-1 flex-col">
+        <header id="topbar" class="sticky top-0 z-20"></header>
+
+        <main class="page-glow mx-auto w-full max-w-[1400px] flex-1 px-4 pb-28 pt-6 lg:px-8 lg:pb-10">
+          <div id="error-banner" class="mb-4 hidden">
+            <div class="flex items-start justify-between gap-3 rounded-2xl border border-rose-500/25 bg-rose-500/[0.08] px-4 py-3 text-sm text-rose-100">
+              <div class="flex items-start gap-3">
+                <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-rose-500/15 text-rose-300">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="h-4 w-4"><path d="M12 8v5"/><circle cx="12" cy="16.5" r="0.6"/><circle cx="12" cy="12" r="9"/></svg>
+                </span>
+                <div>
+                  <p class="font-semibold">Could not evaluate this crop</p>
+                  <p id="error-text" class="mt-0.5 text-rose-200/80"></p>
+                </div>
+              </div>
+              <button type="button" onclick="AgriUI.clearError()" class="rounded-md px-2 py-1 text-rose-200/70 transition hover:bg-rose-500/10" aria-label="Dismiss error">✕</button>
+            </div>
+          </div>
+
+          <!-- Crop picker -->
+          <section class="rounded-3xl border border-white/5 bg-ink-850/80 p-5">
+            <div class="flex items-center justify-between gap-2">
+              <label for="crop-select" class="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Crop</label>
+              <span id="crop-count" class="rounded-full bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-[0.12em] text-zinc-400">loading</span>
+            </div>
+            <div class="mt-2 flex flex-col gap-2 sm:flex-row">
+              <div class="relative flex-1">
+                <select
+                  id="crop-select"
+                  class="w-full appearance-none rounded-xl border border-white/10 bg-ink-900 px-4 py-3 text-sm font-medium text-zinc-100 outline-none transition focus:border-acid/60 focus:ring-2 focus:ring-acid/20"
+                >
+                  <option value="">Loading crops…</option>
+                </select>
+                <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="h-4 w-4"><path d="m6 9 6 6 6-6"/></svg>
+                </span>
+              </div>
+              <button
+                id="evaluate-button"
+                type="button"
+                class="flex items-center justify-center gap-2 rounded-xl bg-acid px-5 py-3 text-sm font-semibold text-ink-950 transition hover:brightness-105 disabled:opacity-60"
+              >
+                Evaluate now
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+              </button>
+            </div>
+            <p class="mt-2 text-[11px] text-zinc-500">
+              Bands come from <code class="text-zinc-400">api/crops.json</code>. Click any crop in the library below to evaluate it instantly.
+            </p>
+          </section>
+
+          <div id="advisory-skeleton" class="mt-4 hidden">
+            <div class="skeleton h-[280px] rounded-3xl"></div>
+          </div>
+
+          <!-- Result -->
+          <div id="advisory-result" class="mt-4 grid gap-4 lg:grid-cols-3">
+            <article class="relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-br from-ink-850 via-ink-900 to-ink-950 p-6 lg:col-span-2">
+              <div class="pointer-events-none absolute -left-20 -top-24 h-64 w-64 rounded-full bg-acid/10 blur-3xl"></div>
+              <div class="relative flex flex-col gap-6 sm:flex-row sm:items-center">
+                <div class="relative mx-auto grid h-40 w-40 shrink-0 place-items-center sm:mx-0">
+                  <svg viewBox="0 0 128 128" class="h-40 w-40 -rotate-90">
+                    <circle cx="64" cy="64" r="52" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="9" />
+                    <circle id="viability-ring" class="ring-progress" cx="64" cy="64" r="52" fill="none" stroke="#c6f24e" stroke-width="9" stroke-linecap="round" stroke-dasharray="326.73" stroke-dashoffset="326.73" />
+                  </svg>
+                  <div class="absolute text-center">
+                    <p id="viability-score" class="font-display text-2xl font-semibold text-white">—</p>
+                    <p class="text-[10px] uppercase tracking-[0.14em] text-zinc-500">score</p>
+                  </div>
+                </div>
+
+                <div class="min-w-0 flex-1">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span id="viability-badge" class="rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em]">—</span>
+                    <span class="text-[11px] uppercase tracking-[0.14em] text-zinc-500">evaluated <span id="evaluated-at" class="text-zinc-300">—</span></span>
+                  </div>
+                  <h2 id="result-title" class="font-display mt-3 text-2xl font-semibold text-white sm:text-3xl">—</h2>
+                  <p id="recommendation" class="mt-2 text-sm leading-relaxed text-zinc-300"></p>
+                  <div class="mt-4 flex flex-wrap items-center gap-2">
+                    <span id="source-badge" class="rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em]">—</span>
+                    <span id="result-log" class="rounded-full bg-white/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.1em] text-zinc-400">log —</span>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            <!-- Conditions -->
+            <article class="rounded-3xl border border-white/5 bg-ink-850/80 p-6">
+              <div class="flex items-center justify-between">
+                <p class="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Conditions used</p>
+                <span id="conditions-crop" class="text-[11px] text-zinc-400">—</span>
+              </div>
+              <ul class="mt-5 space-y-5">
+                <li>
+                  <div class="flex items-center justify-between gap-2">
+                    <p class="text-sm text-zinc-400">Temperature</p>
+                    <p class="text-sm font-semibold text-zinc-100"><span id="cond-temp">—</span> °C</p>
+                  </div>
+                  <div class="relative mt-2 h-1.5 rounded-full bg-white/[0.06]">
+                    <div id="band-temp" class="absolute inset-y-0 rounded-full bg-acid/25"></div>
+                    <div id="marker-temp" class="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-acid ring-4 ring-ink-850"></div>
+                  </div>
+                  <span id="status-temp" class="mt-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em]">—</span>
+                </li>
+                <li>
+                  <div class="flex items-center justify-between gap-2">
+                    <p class="text-sm text-zinc-400">Humidity</p>
+                    <p class="text-sm font-semibold text-zinc-100"><span id="cond-humidity">—</span> %</p>
+                  </div>
+                  <div class="relative mt-2 h-1.5 rounded-full bg-white/[0.06]">
+                    <div id="band-humidity" class="absolute inset-y-0 rounded-full bg-acid/25"></div>
+                    <div id="marker-humidity" class="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-acid ring-4 ring-ink-850"></div>
+                  </div>
+                  <span id="status-humidity" class="mt-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em]">—</span>
+                </li>
+                <li>
+                  <div class="flex items-center justify-between gap-2">
+                    <p class="text-sm text-zinc-400">Soil moisture</p>
+                    <p class="text-sm font-semibold text-zinc-100"><span id="cond-soil">—</span> %</p>
+                  </div>
+                  <div class="relative mt-2 h-1.5 rounded-full bg-white/[0.06]">
+                    <div id="band-soil" class="absolute inset-y-0 rounded-full bg-acid/25"></div>
+                    <div id="marker-soil" class="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-acid ring-4 ring-ink-850"></div>
+                  </div>
+                  <span id="status-soil" class="mt-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em]">—</span>
+                </li>
+              </ul>
+              <p class="mt-5 border-t border-white/5 pt-3 text-[11px] leading-relaxed text-zinc-500">
+                The shaded band is the optimal range inside the wider marginal band.
+              </p>
+            </article>
+
+            <!-- Crop library -->
+            <article class="rounded-3xl border border-white/5 bg-ink-850/80 p-6 lg:col-span-2">
+              <div class="flex items-center justify-between">
+                <p class="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Crop library</p>
+                <span class="text-[10px] uppercase tracking-[0.12em] text-zinc-600">tap to evaluate</span>
+              </div>
+              <div id="crop-library" class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3"></div>
+            </article>
+
+            <!-- Fusion trace -->
+            <article class="rounded-3xl border border-white/5 bg-ink-850/80 p-6">
+              <p class="text-[11px] uppercase tracking-[0.18em] text-zinc-500">Fusion trace</p>
+              <p id="fusion-note" class="mt-3 text-xs leading-relaxed text-zinc-400"></p>
+              <div class="mt-4 space-y-2">
+                <div class="flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2">
+                  <span class="text-[11px] text-zinc-500">Freshness limit</span>
+                  <span class="text-xs text-zinc-200">15 min</span>
+                </div>
+                <div class="flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2">
+                  <span class="text-[11px] text-zinc-500">Spike limit</span>
+                  <span class="text-xs text-zinc-200">40 pp</span>
+                </div>
+                <div class="flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2">
+                  <span class="text-[11px] text-zinc-500">Saved to</span>
+                  <span class="text-xs text-zinc-200">agri_telemetry_logs</span>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <p id="advisory-placeholder" class="mt-4 hidden rounded-3xl border border-dashed border-white/10 px-6 py-10 text-center text-sm text-zinc-500">
+            No verdict yet. Choose a crop and press Evaluate now.
+          </p>
+        </main>
+      </div>
+    </div>
+
+    <nav id="mobile-nav" class="lg:hidden"></nav>
+
+    <script>
+      (function () {
+        "use strict";
+
+        const CROP_RULES = {};
+        const SCORES = { Optimal: 100, Marginal: 55, Unsuitable: 22 };
+        let activeCrop = "";
+
+        function setLoading(loading) {
+          AgriUI.setHidden(AgriUI.byId("advisory-skeleton"), !loading);
+          if (loading) {
+            AgriUI.setHidden(AgriUI.byId("advisory-result"), true);
+            AgriUI.setHidden(AgriUI.byId("advisory-placeholder"), true);
+          }
+        }
+
+        function range(values) {
+          return values[0] + "–" + values[1];
+        }
+
+        function renderLibrary() {
+          const container = AgriUI.byId("crop-library");
+          container.innerHTML = Object.keys(CROP_RULES)
+            .map(function (name) {
+              const rules = CROP_RULES[name];
+              const active = name === activeCrop;
+              return (
+                '<button type="button" data-crop="' + AgriUI.escapeHtml(name) + '" class="group flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left transition ' +
+                (active
+                  ? "border-acid/40 bg-acid/10 text-white"
+                  : "border-white/5 bg-white/[0.02] text-zinc-300 hover:border-acid/25 hover:bg-white/[0.04]") +
+                '">' +
+                "<span>" +
+                '<span class="block text-sm font-medium">' + AgriUI.escapeHtml(name) + "</span>" +
+                '<span class="mt-0.5 block text-[10px] text-zinc-500">' +
+                range(rules.temperature.optimal) + " °C · " + range(rules.humidity.optimal) + " % RH</span>" +
+                "</span>" +
+                (active
+                  ? '<span class="text-acid"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4"><path d="m5 13 4 4L19 7"/></svg></span>'
+                  : '<span class="text-zinc-600 transition group-hover:text-acid"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="h-4 w-4"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></span>') +
+                "</button>"
+              );
+            })
+            .join("");
+
+          container.querySelectorAll("[data-crop]").forEach(function (button) {
+            button.addEventListener("click", function () {
+              const crop = button.getAttribute("data-crop");
+              AgriUI.byId("crop-select").value = crop;
+              evaluate(crop);
+            });
+          });
+        }
+
+        async function loadCrops() {
+          const data = await AgriUI.apiGet("/crops");
+          (data.crops || []).forEach(function (crop) {
+            CROP_RULES[crop.name] = crop;
+          });
+
+          const select = AgriUI.byId("crop-select");
+          select.innerHTML = Object.keys(CROP_RULES)
+            .map(function (name) {
+              return '<option value="' + AgriUI.escapeHtml(name) + '">' + AgriUI.escapeHtml(name) + "</option>";
+            })
+            .join("");
+
+          const names = Object.keys(CROP_RULES);
+          activeCrop = names[0] || "";
+          select.value = activeCrop;
+          AgriUI.setText("crop-count", data.count + " crops");
+          renderLibrary();
+        }
+
+        function position(value, rule) {
+          const low = rule.marginal[0];
+          const high = rule.marginal[1];
+          const span = high - low || 1;
+          return Math.max(0, Math.min(100, ((value - low) / span) * 100));
+        }
+
+        function paintBand(metric, value, rule, status) {
+          const optimalLeft = position(rule.optimal[0], rule);
+          const optimalRight = position(rule.optimal[1], rule);
+          const markerLeft = position(value, rule);
+
+          const band = AgriUI.byId("band-" + metric);
+          band.style.left = optimalLeft + "%";
+          band.style.width = Math.max(2, optimalRight - optimalLeft) + "%";
+
+          const marker = AgriUI.byId("marker-" + metric);
+          marker.style.left = markerLeft + "%";
+          marker.className =
+            "absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full ring-4 ring-ink-850 " +
+            (status === "optimal"
+              ? "bg-acid"
+              : status.indexOf("marginal") === 0
+              ? "bg-amber-400"
+              : "bg-rose-500");
+
+          const chipInfo = AgriUI.metricStatusChip(status);
+          const chip = AgriUI.byId("status-" + metric);
+          chip.textContent = chipInfo.label;
+          chip.className =
+            "mt-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.1em] " +
+            chipInfo.classes;
+        }
+
+        function render(data) {
+          activeCrop = data.crop;
+          const badge = AgriUI.byId("viability-badge");
+          badge.textContent = data.viability;
+          badge.className =
+            "rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] " +
+            AgriUI.viabilityBadge(data.viability);
+          AgriUI.setText("result-title", data.crop + " · " + data.viability);
+          AgriUI.setText("recommendation", data.recommendation);
+          AgriUI.setText("evaluated-at", AgriUI.formatTime(data.evaluated_at));
+          AgriUI.setText("conditions-crop", data.crop);
+          AgriUI.setText("result-log", "log #" + data.log_id);
+
+          const source = AgriUI.sourceBadge(data.source);
+          const sourceElement = AgriUI.byId("source-badge");
+          sourceElement.textContent = source.label;
+          sourceElement.className =
+            "rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.1em] " + source.classes;
+          AgriUI.setText("fusion-note", data.fusion_note || "No fusion note recorded.");
+
+          const ring = AgriUI.byId("viability-ring");
+          const circumference = 2 * Math.PI * 52;
+          const score = SCORES[data.viability] || 0;
+          const colour =
+            data.viability === "Optimal" ? "#c6f24e" : data.viability === "Marginal" ? "#fbbf24" : "#fb7185";
+          ring.setAttribute("stroke", colour);
+          ring.setAttribute("stroke-dasharray", circumference.toFixed(2));
+          ring.setAttribute("stroke-dashoffset", (circumference * (1 - score / 100)).toFixed(2));
+          AgriUI.setText("viability-score", score + "%");
+
+          const conditions = data.conditions || {};
+          const rules = CROP_RULES[data.crop];
+          AgriUI.setText("cond-temp", AgriUI.formatNumber(conditions.temperature_c, 1));
+          AgriUI.setText("cond-humidity", AgriUI.formatNumber(conditions.humidity_pct, 1));
+          AgriUI.setText("cond-soil", AgriUI.formatNumber(conditions.soil_moisture_pct, 1));
+
+          if (rules) {
+            const statuses = data.metric_status || {};
+            paintBand("temp", Number(conditions.temperature_c), rules.temperature, statuses.temperature);
+            paintBand("humidity", Number(conditions.humidity_pct), rules.humidity, statuses.humidity);
+            paintBand("soil", Number(conditions.soil_moisture_pct), rules.soil_moisture, statuses.soil_moisture);
+          }
+
+          AgriUI.setHidden(AgriUI.byId("advisory-result"), false);
+          AgriUI.setHidden(AgriUI.byId("advisory-placeholder"), true);
+          renderLibrary();
+        }
+
+        async function evaluate(crop) {
+          const selected = crop || AgriUI.byId("crop-select").value;
+          if (!selected) return;
+          const button = AgriUI.byId("evaluate-button");
+          button.disabled = true;
+          setLoading(true);
+          try {
+            const data = await AgriUI.apiGet("/advisory?crop=" + encodeURIComponent(selected));
+            render(data);
+            AgriUI.clearError();
+          } catch (error) {
+            AgriUI.showError(error.message);
+            AgriUI.setHidden(AgriUI.byId("advisory-placeholder"), false);
+          } finally {
+            // Hide the skeleton on both paths; render() already revealed the result.
+            setLoading(false);
+            button.disabled = false;
+          }
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+          AgriUI.mountShell({
+            title: "Crop advisory",
+            subtitle: "Decision matrix across the full crop catalogue",
+          });
+          window.addEventListener("agri:refresh", function () {
+            evaluate();
+          });
+          AgriUI.byId("evaluate-button").addEventListener("click", function () {
+            evaluate();
+          });
+          AgriUI.byId("crop-select").addEventListener("change", function (event) {
+            evaluate(event.target.value);
+          });
+
+          loadCrops()
+            .then(function () {
+              return evaluate();
+            })
+            .catch(function (error) {
+              AgriUI.showError(error.message);
+              setLoading(false);
+              AgriUI.setHidden(AgriUI.byId("advisory-placeholder"), false);
+            });
+        });
+      })();
+    </script>
+  </body>
+</html>
